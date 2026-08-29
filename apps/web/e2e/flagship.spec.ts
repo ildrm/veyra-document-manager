@@ -47,8 +47,14 @@ test.describe('flagship evidence flow', () => {
   test('streams a follow-up answer and exposes exact evidence', async ({ page }) => {
     await page.goto('/ask');
     await expect(page.getByText('The current commitment is', { exact: false })).toBeVisible();
-    await page.getByLabel('Ask a follow-up').fill('Confirm the current Acme uptime commitment.');
-    await page.getByRole('button', { name: 'Send question' }).click();
+    const composer = page.getByLabel('Ask a follow-up');
+    const sendQuestion = page.getByRole('button', { name: 'Send question' });
+    const followUp = 'Confirm the current Acme uptime commitment.';
+    await expect(composer).toBeEnabled();
+    await composer.fill(followUp);
+    await expect(composer).toHaveValue(followUp);
+    await expect(sendQuestion).toBeEnabled();
+    await sendQuestion.click();
     await expect(
       page
         .getByText(/Applying permissions|Applied permissions|Finding authorized evidence/)

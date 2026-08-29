@@ -25,13 +25,22 @@ import {
   X,
 } from 'lucide-react';
 import Link from 'next/link';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useState, useSyncExternalStore } from 'react';
 import { demoAskResponse, ids } from '@/lib/demo-data';
 import { knowledgeApi } from '@/lib/knowledge-api';
 
 type Feedback = 'helpful' | 'unhelpful' | null;
 
+const subscribeToHydration = () => () => undefined;
+const getClientHydrationSnapshot = () => true;
+const getServerHydrationSnapshot = () => false;
+
 export function AskClient() {
+  const isHydrated = useSyncExternalStore(
+    subscribeToHydration,
+    getClientHydrationSnapshot,
+    getServerHydrationSnapshot,
+  );
   const [question, setQuestion] = useState('What uptime have we committed to for Acme Corp?');
   const [composer, setComposer] = useState('');
   const [response, setResponse] = useState<AskResponse>(demoAskResponse);
@@ -42,6 +51,7 @@ export function AskClient() {
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [streamingAnswer, setStreamingAnswer] = useState('');
   const [streamStatus, setStreamStatus] = useState('Applying permissions…');
+
   const askMutation = useMutation({
     mutationFn: (nextQuestion: string) => {
       setStreamingAnswer('');
@@ -330,6 +340,7 @@ export function AskClient() {
                   id="ask-composer"
                   value={composer}
                   onChange={(event) => setComposer(event.target.value)}
+                  disabled={!isHydrated}
                   placeholder="Ask a follow-up"
                   rows={2}
                   className="w-full resize-none bg-transparent text-sm leading-6 outline-none placeholder:text-[var(--color-muted)]"
@@ -347,7 +358,7 @@ export function AskClient() {
                     variant="primary"
                     size="icon"
                     type="submit"
-                    disabled={!composer.trim() || askMutation.isPending}
+                    disabled={!isHydrated || !composer.trim() || askMutation.isPending}
                     aria-label="Send question"
                   >
                     <Send aria-hidden size={16} />
