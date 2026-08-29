@@ -88,7 +88,13 @@ jobs:
       - name: Validate Docker Compose model
         run: docker compose --env-file infrastructure/.env.example -f infrastructure/compose.yaml config --quiet
       - name: Validate Keycloak realm JSON
-        run: jq --exit-status empty infrastructure/keycloak/realm-export.json
+        run: >-
+          jq --exit-status
+          'type == "object" and
+          (.realm | type == "string" and length > 0) and
+          (.enabled | type == "boolean") and
+          (.clients | type == "array")'
+          infrastructure/keycloak/realm-export.json
       - name: Test OpenFGA authorization model
         run: >-
           docker run --rm
