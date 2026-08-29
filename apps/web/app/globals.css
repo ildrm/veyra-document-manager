@@ -1,0 +1,119 @@
+@import 'tailwindcss';
+@import '@veyra/design-tokens/tokens.css';
+@source '../../../packages/ui/src/**/*.{ts,tsx}';
+@custom-variant dark (&:where(.dark, .dark *));
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-ui);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--color-background);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  text-decoration: none;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-primary) 24%, transparent);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+mark {
+  border-radius: 2px;
+  background: var(--color-highlight);
+  color: inherit;
+  padding-inline: 0.08em;
+}
+
+.reading-font {
+  font-family: var(--font-reading);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.veyra-scrollbar {
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.veyra-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.veyra-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--color-border-strong);
+  background-clip: padding-box;
+}
+
+.evidence-thread {
+  position: relative;
+}
+
+.evidence-thread::before {
+  position: absolute;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  left: -1px;
+  width: 2px;
+  border-radius: 99px;
+  background: var(--color-primary);
+  content: '';
+}
+
+@keyframes veyra-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(280%);
+  }
+}
+
+.indeterminate-progress {
+  animation: veyra-progress 1.25s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

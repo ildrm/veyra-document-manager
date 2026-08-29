@@ -1,0 +1,75 @@
+:root {
+  color-scheme: light;
+  --font-ui: var(--font-geist), Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-reading: var(--font-source-serif), Georgia, 'Times New Roman', serif;
+  --color-background: #ffffff;
+  --color-foreground: #121a2b;
+  --color-muted: #62708a;
+  --color-muted-strong: #45516a;
+  --color-surface: #f7f9fc;
+  --color-surface-raised: #ffffff;
+  --color-surface-selected: #edf3ff;
+  --color-border: #d9e0eb;
+  --color-border-strong: #bac6d8;
+  --color-primary: #184fdb;
+  --color-primary-hover: #123fb5;
+  --color-primary-soft: #edf3ff;
+  --color-success: #0b704f;
+  --color-success-soft: #e8f7f0;
+  --color-warning: #a15c00;
+  --color-warning-soft: #fff5dd;
+  --color-danger: #c93434;
+  --color-danger-soft: #fff0f0;
+  --color-info: #245dd8;
+  --color-highlight: #fff0a8;
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.06);
+  --shadow-md: 0 10px 28px rgb(23 37 61 / 0.1);
+  --radius-xs: 6px;
+  --radius-sm: 9px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --motion-fast: 120ms;
+  --motion-standard: 180ms;
+  --focus-ring: 0 0 0 3px rgb(24 79 219 / 0.24);
+}
+
+.dark {
+  color-scheme: dark;
+  --color-background: #0d1119;
+  --color-foreground: #eef2f8;
+  --color-muted: #9aa7ba;
+  --color-muted-strong: #c3cbd7;
+  --color-surface: #121925;
+  --color-surface-raised: #171f2d;
+  --color-surface-selected: #17294c;
+  --color-border: #293344;
+  --color-border-strong: #3c4960;
+  --color-primary: #6f96ff;
+  --color-primary-hover: #8caaff;
+  --color-primary-soft: #17294c;
+  --color-success: #5ed3a6;
+  --color-success-soft: #112e26;
+  --color-warning: #f0b15d;
+  --color-warning-soft: #382a14;
+  --color-danger: #ff8585;
+  --color-danger-soft: #3b1b20;
+  --color-info: #80a4ff;
+  --color-highlight: #5f4b13;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.2);
+  --shadow-md: 0 16px 36px rgb(0 0 0 / 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-standard: 0ms;
+  }
+}

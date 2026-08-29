@@ -1,0 +1,4 @@
+# Local-only dynamic configuration for Temporal's SQL development deployment.
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: true
+    constraints: {}

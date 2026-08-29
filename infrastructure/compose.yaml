@@ -1,0 +1,314 @@
+name: veyra-development
+
+x-openfga-environment: &openfga-environment
+  OPENFGA_DATASTORE_ENGINE: postgres
+  OPENFGA_DATASTORE_URI: postgres://${POSTGRES_USER:-veyra}:${POSTGRES_PASSWORD:-veyra}@postgres:5432/openfga?sslmode=disable
+  OPENFGA_LOG_FORMAT: json
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.1-pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-veyra}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-veyra}
+      POSTGRES_DB: ${POSTGRES_DB:-veyra}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    stop_grace_period: 30s
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-veyra}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-veyra-development-only}
+    ports:
+      - '127.0.0.1:${MINIO_API_PORT:-9000}:9000'
+      - '127.0.0.1:${MINIO_CONSOLE_PORT:-9002}:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    restart: 'no'
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-veyra}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-veyra-development-only}
+      S3_QUARANTINE_BUCKET: ${S3_QUARANTINE_BUCKET:-veyra-quarantine}
+      S3_TRUSTED_BUCKET: ${S3_TRUSTED_BUCKET:-veyra-trusted}
+      S3_DERIVED_BUCKET: ${S3_DERIVED_BUCKET:-veyra-derived}
+    entrypoint: ['/bin/sh', '-ec']
+    command:
+      - |
+        until mc alias set veyra http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"; do sleep 2; done
+        mc mb --ignore-existing "veyra/$${S3_QUARANTINE_BUCKET}"
+        mc mb --ignore-existing "veyra/$${S3_TRUSTED_BUCKET}"
+        mc mb --ignore-existing "veyra/$${S3_DERIVED_BUCKET}"
+        mc version enable "veyra/$${S3_QUARANTINE_BUCKET}"
+        mc version enable "veyra/$${S3_TRUSTED_BUCKET}"
+        mc version enable "veyra/$${S3_DERIVED_BUCKET}"
+
+  valkey:
+    image: valkey/valkey:8.1.3-alpine
+    restart: unless-stopped
+    command: ['valkey-server', '--appendonly', 'yes', '--save', '60', '1']
+    ports:
+      - '127.0.0.1:${VALKEY_PORT:-6379}:6379'
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  openfga-migrate:
+    image: openfga/openfga:v1.19.0
+    restart: 'no'
+    command: migrate
+    environment: *openfga-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  openfga:
+    image: openfga/openfga:v1.19.0
+    restart: unless-stopped
+    command: run
+    environment:
+      <<: *openfga-environment
+      OPENFGA_PLAYGROUND_ENABLED: 'true'
+      OPENFGA_METRICS_ENABLED: 'true'
+      OPENFGA_METRICS_ADDR: 0.0.0.0:2112
+    depends_on:
+      openfga-migrate:
+        condition: service_completed_successfully
+    ports:
+      - '127.0.0.1:${OPENFGA_HTTP_PORT:-8081}:8080'
+      - '127.0.0.1:${OPENFGA_GRPC_PORT:-8082}:8081'
+      - '127.0.0.1:${OPENFGA_PLAYGROUND_PORT:-3002}:3000'
+    healthcheck:
+      test: ['CMD', '/usr/local/bin/grpc_health_probe', '-addr=127.0.0.1:8081']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  keycloak:
+    image: keycloak/keycloak:26.6.3
+    restart: unless-stopped
+    command: ['start-dev', '--import-realm']
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER:-veyra}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-veyra}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-veyra-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-veyra-admin-development-only}
+      KC_HEALTH_ENABLED: 'true'
+      KC_METRICS_ENABLED: 'true'
+      KC_HTTP_ENABLED: 'true'
+      KC_HOSTNAME_STRICT: 'false'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:${KEYCLOAK_PORT:-8080}:8080'
+      - '127.0.0.1:${KEYCLOAK_MANAGEMENT_PORT:-9001}:9000'
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/veyra-realm.json:ro
+      - keycloak-data:/opt/keycloak/data
+    healthcheck:
+      test: ['CMD', 'bash', '-ec', 'exec 3<>/dev/tcp/127.0.0.1/9000']
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+
+  temporal:
+    # auto-setup is intentionally limited to local development; production runs
+    # explicit schema migrations and a supported multi-instance server topology.
+    image: temporalio/auto-setup:1.29.7
+    profiles: ['workflow']
+    restart: unless-stopped
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      BIND_ON_IP: 0.0.0.0
+      POSTGRES_USER: ${POSTGRES_USER:-veyra}
+      POSTGRES_PWD: ${POSTGRES_PASSWORD:-veyra}
+      POSTGRES_SEEDS: postgres
+      DBNAME: temporal
+      VISIBILITY_DBNAME: temporal_visibility
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
+      PROMETHEUS_ENDPOINT: 0.0.0.0:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:${TEMPORAL_PORT:-7233}:7233'
+    volumes:
+      - ./temporal/dynamicconfig:/etc/temporal/config/dynamicconfig:ro
+    healthcheck:
+      test: ['CMD', 'temporal', 'operator', 'cluster', 'health', '--address', '127.0.0.1:7233']
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    stop_grace_period: 30s
+
+  temporal-ui:
+    image: temporalio/ui:2.53.2
+    profiles: ['workflow']
+    restart: unless-stopped
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000
+    depends_on:
+      temporal:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:${TEMPORAL_UI_PORT:-8233}:8080'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://127.0.0.1:8080/']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  loki:
+    image: grafana/loki:3.5.3
+    profiles: ['observability']
+    restart: unless-stopped
+    command: ['-config.file=/etc/loki/config.yaml']
+    ports:
+      - '127.0.0.1:${LOKI_PORT:-3100}:3100'
+    volumes:
+      - ./observability/loki.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://127.0.0.1:3100/ready']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  tempo:
+    image: grafana/tempo:2.10.7
+    profiles: ['observability']
+    restart: unless-stopped
+    command: ['-config.file=/etc/tempo/config.yaml']
+    ports:
+      - '127.0.0.1:${TEMPO_PORT:-3200}:3200'
+    volumes:
+      - ./observability/tempo.yaml:/etc/tempo/config.yaml:ro
+      - tempo-data:/var/tempo
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.159.0
+    profiles: ['observability']
+    restart: unless-stopped
+    command: ['--config=/etc/otelcol-contrib/config.yaml']
+    depends_on:
+      loki:
+        condition: service_healthy
+      tempo:
+        condition: service_started
+    ports:
+      - '127.0.0.1:${OTEL_GRPC_PORT:-4317}:4317'
+      - '127.0.0.1:${OTEL_HTTP_PORT:-4318}:4318'
+      - '127.0.0.1:9464:9464'
+      - '127.0.0.1:13133:13133'
+    volumes:
+      - ./observability/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+
+  prometheus:
+    image: prom/prometheus:v3.7.2
+    profiles: ['observability']
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    depends_on:
+      otel-collector:
+        condition: service_started
+    ports:
+      - '127.0.0.1:${PROMETHEUS_PORT:-9090}:9090'
+    volumes:
+      - ./observability/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - prometheus-data:/prometheus
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://127.0.0.1:9090/-/ready']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    profiles: ['observability']
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin-development-only}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+      GF_PLUGINS_CHECK_FOR_UPDATES: 'false'
+      GF_PLUGINS_PREINSTALL_DISABLED: 'true'
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+      tempo:
+        condition: service_started
+    ports:
+      - '127.0.0.1:${GRAFANA_PORT:-3001}:3000'
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://127.0.0.1:3000/api/health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+volumes:
+  postgres-data:
+  minio-data:
+  valkey-data:
+  keycloak-data:
+  loki-data:
+  tempo-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  default:
+    name: veyra-development

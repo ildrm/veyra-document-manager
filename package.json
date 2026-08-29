@@ -1,0 +1,29 @@
+{
+  "name": "veyra",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Evidence-first enterprise knowledge and document intelligence platform",
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=24 <27",
+    "pnpm": ">=11"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "pnpm --filter @veyra/web test:e2e",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:migrate": "pnpm --filter @veyra/api db:migrate",
+    "db:seed": "pnpm --filter @veyra/api db:seed",
+    "quality": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "prettier": "3.9.6",
+    "turbo": "2.10.12",
+    "typescript": "5.9.3"
+  }
+}

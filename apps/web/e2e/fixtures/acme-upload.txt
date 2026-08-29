@@ -1,0 +1,6 @@
+ACME MASTER SERVICES AGREEMENT
+
+7.2 Service availability
+
+Provider will maintain and support the Services to achieve 99.95% monthly uptime,
+excluding Scheduled Maintenance and Force Majeure events.

@@ -1,0 +1,81 @@
+name: Veyra authorization model
+model_file: ./model.fga
+
+tuples:
+  - user: user:alice
+    relation: member
+    object: organization:acme
+  - user: organization:acme
+    relation: organization
+    object: workspace:policies
+  - user: workspace:policies
+    relation: workspace
+    object: folder:hr
+  - user: folder:hr
+    relation: folder
+    object: document:leave-policy
+  - user: document:leave-policy
+    relation: document
+    object: document_version:leave-policy-v7
+  - user: document_version:leave-policy-v7
+    relation: source
+    object: evidence:leave-entitlement
+
+  - user: user:bob
+    relation: member
+    object: group:policy-editors
+  - user: group:policy-editors#member
+    relation: editor
+    object: workspace:policies
+
+  - user: user:carol
+    relation: viewer
+    object: document:leave-policy
+  - user: user:carol
+    relation: editor
+    object: workspace:policies
+  - user: user:carol
+    relation: blocked
+    object: document:leave-policy
+
+tests:
+  - name: organization membership inherits read access
+    check:
+      - user: user:alice
+        object: document:leave-policy
+        assertions:
+          can_view: true
+          can_edit: false
+          can_share: false
+
+  - name: group workspace editor inherits edit access
+    check:
+      - user: user:bob
+        object: document:leave-policy
+        assertions:
+          can_view: true
+          can_comment: true
+          can_edit: true
+
+  - name: a document deny overrides inherited and direct grants
+    check:
+      - user: user:carol
+        object: document:leave-policy
+        assertions:
+          can_view: false
+          can_download: false
+          can_comment: false
+          can_edit: false
+          can_approve: false
+          can_share: false
+
+  - name: evidence inherits the immutable source version permission
+    check:
+      - user: user:alice
+        object: evidence:leave-entitlement
+        assertions:
+          can_view: true
+      - user: user:mallory
+        object: evidence:leave-entitlement
+        assertions:
+          can_view: false

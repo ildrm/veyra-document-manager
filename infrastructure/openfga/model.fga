@@ -1,0 +1,79 @@
+model
+  schema 1.1
+
+type user
+
+type group
+  relations
+    define member: [user, group#member]
+
+type organization
+  relations
+    define member: [user, group#member]
+    define auditor: [user, group#member]
+    define admin: [user, group#member]
+
+    define can_view: member or auditor or admin
+    define can_audit: auditor or admin
+    define can_manage: admin
+
+type workspace
+  relations
+    define organization: [organization]
+    define viewer: [user, group#member]
+    define editor: [user, group#member]
+    define approver: [user, group#member]
+    define manager: [user, group#member]
+
+    define can_view: viewer or editor or approver or manager or can_view from organization
+    define can_comment: editor or approver or manager
+    define can_edit: editor or manager
+    define can_approve: approver or manager
+    define can_share: manager
+    define can_manage: manager
+
+type folder
+  relations
+    define workspace: [workspace]
+    define parent: [folder]
+    define viewer: [user, group#member]
+    define commenter: [user, group#member]
+    define editor: [user, group#member]
+    define manager: [user, group#member]
+    define blocked: [user, group#member]
+
+    define can_view: (viewer or commenter or editor or manager or can_view from parent or can_view from workspace) but not blocked
+    define can_comment: (commenter or editor or manager or can_comment from parent or can_comment from workspace) but not blocked
+    define can_edit: (editor or manager or can_edit from parent or can_edit from workspace) but not blocked
+    define can_share: (manager or can_share from parent or can_share from workspace) but not blocked
+    define can_manage: (manager or can_manage from parent or can_manage from workspace) but not blocked
+
+type document
+  relations
+    define workspace: [workspace]
+    define folder: [folder]
+    define owner: [user]
+    define viewer: [user, group#member]
+    define commenter: [user, group#member]
+    define editor: [user, group#member]
+    define approver: [user, group#member]
+    define blocked: [user, group#member]
+
+    define can_view: (viewer or commenter or editor or approver or owner or can_view from folder or can_view from workspace) but not blocked
+    define can_download: can_view
+    define can_comment: (commenter or editor or owner or can_comment from folder or can_comment from workspace) but not blocked
+    define can_edit: (editor or owner or can_edit from folder or can_edit from workspace) but not blocked
+    define can_approve: (approver or owner or can_approve from workspace) but not blocked
+    define can_share: (owner or can_share from folder or can_share from workspace) but not blocked
+    define can_manage: (owner or can_manage from folder or can_manage from workspace) but not blocked
+
+type document_version
+  relations
+    define document: [document]
+    define can_view: can_view from document
+    define can_download: can_download from document
+
+type evidence
+  relations
+    define source: [document_version]
+    define can_view: can_view from source

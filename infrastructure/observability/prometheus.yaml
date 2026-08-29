@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: development
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['prometheus:9090']
+
+  - job_name: veyra-otel
+    static_configs:
+      - targets: ['otel-collector:9464']
+
+  - job_name: openfga
+    static_configs:
+      - targets: ['openfga:2112']
+
+  - job_name: keycloak
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['keycloak:9000']
+
+  - job_name: temporal
+    static_configs:
+      - targets: ['temporal:8000']
